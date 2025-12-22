@@ -69,6 +69,20 @@ export const generateModelImage = async (imageSource: File | string): Promise<st
     return handleApiResponse(response);
 };
 
+/**
+ * สร้างรูปสินค้าแฟชั่นใหม่ตามหมวดหมู่
+ */
+export const generateFashionItem = async (category: string, style: string = 'trendy and stylish'): Promise<string> => {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const prompt = `Professional product photography of a single ${category}, ${style}, photorealistic, studio lighting, isolated on a pure white background (#FFFFFF). High resolution, high fashion.`;
+    
+    const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash-image',
+        contents: { parts: [{ text: prompt }] },
+    });
+    return handleApiResponse(response);
+};
+
 export const generateVirtualTryOnImage = async (modelImageUrl: string, itemImage: File): Promise<string> => {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const modelImagePart = dataUrlToPart(modelImageUrl);
@@ -104,7 +118,6 @@ export const generateVideo = async (imageSource: string, modelName: string = 've
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const { mimeType, data } = dataUrlToParts(imageSource);
     
-    // Prompt tuning based on model
     const basePrompt = "Cinematic fashion clip. The model walks gracefully on a minimalist studio catwalk, showing off the outfit and accessories. Photorealistic, professional lighting.";
     const prompt = modelName.includes('fast') ? basePrompt : `${basePrompt} Extremely high detail, 4k cinematic resolution, buttery smooth motion, dramatic shadows.`;
 

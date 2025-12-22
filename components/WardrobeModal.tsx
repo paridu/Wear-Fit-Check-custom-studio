@@ -5,13 +5,16 @@
 */
 import React, { useState } from 'react';
 import type { WardrobeItem } from '../types';
-import { UploadCloudIcon, CheckCircleIcon } from './icons';
+import { UploadCloudIcon, CheckCircleIcon, Wand2Icon } from './icons';
+import { generateFashionItem } from '../services/geminiService';
+import Spinner from './Spinner';
 
 interface WardrobePanelProps {
   onGarmentSelect: (garmentFile: File, garmentInfo: WardrobeItem) => void;
   activeGarmentIds: string[];
   isLoading: boolean;
   wardrobe: WardrobeItem[];
+  onAddItemToWardrobe: (item: WardrobeItem) => void;
 }
 
 const urlToFile = (url: string, filename: string): Promise<File> => {
@@ -36,8 +39,9 @@ const urlToFile = (url: string, filename: string): Promise<File> => {
     });
 };
 
-const WardrobePanel: React.FC<WardrobePanelProps> = ({ onGarmentSelect, activeGarmentIds, isLoading, wardrobe }) => {
+const WardrobePanel: React.FC<WardrobePanelProps> = ({ onGarmentSelect, activeGarmentIds, isLoading, wardrobe, onAddItemToWardrobe }) => {
     const [error, setError] = useState<string | null>(null);
+    const [isGenerating, setIsGenerating] = useState<string | null>(null);
 
     const handleGarmentClick = async (item: WardrobeItem) => {
         if (isLoading || activeGarmentIds.includes(item.id)) return;
@@ -50,7 +54,7 @@ const WardrobePanel: React.FC<WardrobePanelProps> = ({ onGarmentSelect, activeGa
         }
     };
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, category: 'clothing' | 'accessory') => {
         if (e.target.files && e.target.files[0]) {
             const file = e.target.files[0];
             if (!file.type.startsWith('image/')) {
@@ -61,9 +65,31 @@ const WardrobePanel: React.FC<WardrobePanelProps> = ({ onGarmentSelect, activeGa
                 id: `custom-${Date.now()}`,
                 name: file.name,
                 url: URL.createObjectURL(file),
-                category: 'clothing' // Default to clothing for uploads
+                category
             };
             onGarmentSelect(file, customGarmentInfo);
+        }
+    };
+
+    const handleAiGenerate = async (category: string, catKey: 'clothing' | 'accessory') => {
+        setIsGenerating(category);
+        setError(null);
+        try {
+            const dataUrl = await generateFashionItem(category);
+            const newItem: WardrobeItem = {
+                id: `ai-${Date.now()}`,
+                name: `AI Generated ${category}`,
+                url: dataUrl,
+                category: catKey
+            };
+            onAddItemToWardrobe(newItem);
+            // โหลดและเลือกทันที
+            const file = await urlToFile(dataUrl, newItem.name);
+            onGarmentSelect(file, newItem);
+        } catch (err) {
+            setError('AI ไม่สามารถสร้างรูปภาพได้ในขณะนี้');
+        } finally {
+            setIsGenerating(null);
         }
     };
 
@@ -76,11 +102,11 @@ const WardrobePanel: React.FC<WardrobePanelProps> = ({ onGarmentSelect, activeGa
                         key={item.id}
                         onClick={() => handleGarmentClick(item)}
                         disabled={isLoading || isActive}
-                        className="relative aspect-square border rounded-lg overflow-hidden transition-all duration-200 group disabled:opacity-60"
+                        className="relative aspect-square border border-gray-100 rounded-xl overflow-hidden transition-all duration-200 group disabled:opacity-60 bg-white"
                     >
-                        <img src={item.url} alt={item.name} className="w-full h-full object-cover" />
+                        <img src={item.url} alt={item.name} className="w-full h-full object-contain p-1" />
                         <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                            <p className="text-white text-xs font-bold text-center p-1">{item.name}</p>
+                            <p className="text-white text-[10px] font-bold text-center px-1">{item.name}</p>
                         </div>
                         {isActive && (
                             <div className="absolute inset-0 bg-gray-900/70 flex items-center justify-center">
@@ -90,34 +116,51 @@ const WardrobePanel: React.FC<WardrobePanelProps> = ({ onGarmentSelect, activeGa
                     </button>
                 );
             })}
-            {items === clothing && (
-                <label htmlFor="custom-garment-upload" className={`relative aspect-square border-2 border-dashed rounded-lg flex flex-col items-center justify-center text-gray-500 transition-colors ${isLoading ? 'cursor-not-allowed bg-gray-100' : 'hover:border-gray-400 cursor-pointer'}`}>
-                    <UploadCloudIcon className="w-6 h-6 mb-1"/>
-                    <span className="text-xs text-center">อัปโหลด</span>
-                    <input id="custom-garment-upload" type="file" className="hidden" accept="image/*" onChange={handleFileChange} disabled={isLoading}/>
-                </label>
-            )}
         </div>
     );
 
-    const clothing = wardrobe.filter(i => i.category === 'clothing');
-    const accessories = wardrobe.filter(i => i.category === 'accessory');
+    const categories = [
+        { label: 'เสื้อ (Tops)', prompt: 'stylish designer shirt', key: 'clothing' as const },
+        { label: 'กางเกง (Bottoms)', prompt: 'fashionable trousers', key: 'clothing' as const },
+        { label: 'รองเท้า (Shoes)', prompt: 'luxury fashion sneakers', key: 'clothing' as const },
+        { label: 'หมวก (Headwear)', prompt: 'fashionable cap', key: 'accessory' as const },
+        { label: 'เครื่องประดับ (Accessories)', prompt: 'stylish designer bag', key: 'accessory' as const },
+    ];
 
   return (
-    <div className="pt-6 border-t border-gray-400/50 space-y-6">
-        <div>
-            <h2 className="text-xl font-serif tracking-wider text-gray-800 mb-3">เสื้อผ้า</h2>
-            {renderGrid(clothing)}
-        </div>
-        
-        {accessories.length > 0 && (
-            <div>
-                <h2 className="text-xl font-serif tracking-wider text-gray-800 mb-3">เครื่องประดับ</h2>
-                {renderGrid(accessories)}
+    <div className="flex flex-col gap-8 pb-10">
+        <section className="bg-gradient-to-br from-indigo-50 to-white p-5 rounded-2xl border border-indigo-100 shadow-sm">
+            <h2 className="text-lg font-serif font-bold text-indigo-900 mb-4 flex items-center gap-2">
+                <Wand2Icon className="w-5 h-5" />
+                Fashion Studio (AI Generate)
+            </h2>
+            <div className="flex flex-wrap gap-2">
+                {categories.map(cat => (
+                    <div key={cat.label} className="flex gap-1 items-center">
+                        <button 
+                            onClick={() => handleAiGenerate(cat.prompt, cat.key)}
+                            disabled={!!isGenerating || isLoading}
+                            className="text-[11px] font-bold px-3 py-1.5 bg-white border border-indigo-200 text-indigo-600 rounded-full hover:bg-indigo-600 hover:text-white transition-all disabled:opacity-50 flex items-center gap-1.5"
+                        >
+                            {isGenerating === cat.prompt ? <Spinner className="w-3 h-3 border-indigo-400" /> : <Wand2Icon className="w-3 h-3" />}
+                            {cat.label.split(' ')[0]}
+                        </button>
+                        <label className="cursor-pointer p-1.5 bg-gray-100 rounded-full hover:bg-gray-200" title={`อัปโหลด ${cat.label}`}>
+                            <UploadCloudIcon className="w-3.5 h-3.5 text-gray-600" />
+                            <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileChange(e, cat.key)} disabled={isLoading} />
+                        </label>
+                    </div>
+                ))}
             </div>
-        )}
+            {error && <p className="text-red-500 text-xs mt-3">{error}</p>}
+        </section>
 
-        {error && <p className="text-red-500 text-sm mt-4">{error}</p>}
+        <div className="space-y-6">
+            <div>
+                <h2 className="text-xl font-serif tracking-wider text-gray-800 mb-3">ไอเทมในคอลเลกชัน</h2>
+                {renderGrid(wardrobe)}
+            </div>
+        </div>
     </div>
   );
 };

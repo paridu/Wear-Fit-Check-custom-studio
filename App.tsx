@@ -164,8 +164,8 @@ const App: React.FC = () => {
         return [...prev, garmentInfo];
       });
       setVideoUrls([]);
-    } catch (err: unknown) {
-      // Fix: Pass unknown error directly to getFriendlyErrorMessage
+    } catch (err: any) {
+      // Changed to any to handle potential unknown type incompatibility
       setError(getFriendlyErrorMessage(err, 'ไม่สามารถใช้ไอเทมนี้ได้'));
     } finally {
       setIsLoading(false);
@@ -212,8 +212,8 @@ const App: React.FC = () => {
         return newHistory;
       });
       setVideoUrls([]);
-    } catch (err: unknown) {
-      // Fix: Pass unknown error directly to getFriendlyErrorMessage
+    } catch (err: any) {
+      // Changed to any to handle potential unknown type incompatibility
       setError(getFriendlyErrorMessage(err, 'ไม่สามารถเปลี่ยนท่าทางได้'));
       setCurrentPoseIndex(prevPoseIndex);
     } finally {
@@ -237,17 +237,21 @@ const App: React.FC = () => {
     try {
       const videoUrl = await generateVideo(displayImageUrl as string, model);
       setVideoUrls(prev => [...prev, videoUrl].slice(-2));
-    } catch (err: unknown) {
+    } catch (err: any) {
+      // Changed to any to handle potential unknown type incompatibility and string property checks
       const errorMsg = err instanceof Error ? err.message : String(err);
       if (errorMsg.includes("Requested entity was not found")) {
         await (window as any).aistudio.openSelectKey();
       }
-      // Fix: Pass unknown error directly to getFriendlyErrorMessage
       setError(getFriendlyErrorMessage(err, 'ไม่สามารถสร้างวิดีโอได้'));
     } finally {
       setIsVideoLoading(false);
       setLoadingMessage('');
     }
+  };
+
+  const handleAddItemToWardrobe = (item: WardrobeItem) => {
+    setWardrobe(prev => [item, ...prev]);
   };
 
   const handleSaveOutfit = () => {
@@ -345,6 +349,7 @@ const App: React.FC = () => {
                       activeGarmentIds={activeGarmentIds}
                       isLoading={isLoading || isVideoLoading}
                       wardrobe={wardrobe}
+                      onAddItemToWardrobe={handleAddItemToWardrobe}
                     />
                     <SavedOutfits 
                       outfits={savedOutfits} 
