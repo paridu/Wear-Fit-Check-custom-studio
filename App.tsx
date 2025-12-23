@@ -1,3 +1,4 @@
+
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -88,20 +89,21 @@ const App: React.FC = () => {
     activeOutfitLayers.map(layer => layer.garment?.id).filter(Boolean) as string[], 
     [activeOutfitLayers]
   );
+
+  const currentLayer = useMemo(() => outfitHistory[currentOutfitIndex], [outfitHistory, currentOutfitIndex]);
   
   const displayImageUrl = useMemo(() => {
     if (outfitHistory.length === 0) return modelImageUrl;
-    const currentLayer = outfitHistory[currentOutfitIndex];
     if (!currentLayer) return modelImageUrl;
 
     const poseInstruction = POSE_INSTRUCTIONS[currentPoseIndex];
     return currentLayer.poseImages[poseInstruction] ?? Object.values(currentLayer.poseImages)[0];
-  }, [outfitHistory, currentOutfitIndex, currentPoseIndex, modelImageUrl]);
+  }, [outfitHistory, currentOutfitIndex, currentPoseIndex, modelImageUrl, currentLayer]);
 
   const availablePoseKeys = useMemo(() => {
     if (outfitHistory.length === 0) return [];
-    const currentLayer = outfitHistory[currentOutfitIndex];
-    return currentLayer ? Object.keys(currentLayer.poseImages) : [];
+    const layer = outfitHistory[currentOutfitIndex];
+    return layer ? Object.keys(layer.poseImages) : [];
   }, [outfitHistory, currentOutfitIndex]);
 
   const handleModelFinalized = (url: string) => {
@@ -163,7 +165,7 @@ const App: React.FC = () => {
         return [...prev, garmentInfo];
       });
       setVideoUrls([]);
-    } catch (err: unknown) {
+    } catch (err: any) {
       const errorMsg = err instanceof Error ? err.message : String(err);
       setError(getFriendlyErrorMessage(errorMsg, 'ไม่สามารถใช้ไอเทมนี้ได้'));
     } finally {
@@ -184,14 +186,14 @@ const App: React.FC = () => {
     if (isLoading || outfitHistory.length === 0 || newIndex === currentPoseIndex) return;
     
     const poseInstruction = POSE_INSTRUCTIONS[newIndex];
-    const currentLayer = outfitHistory[currentOutfitIndex];
+    const layer = outfitHistory[currentOutfitIndex];
 
-    if (currentLayer.poseImages[poseInstruction]) {
+    if (layer.poseImages[poseInstruction]) {
       setCurrentPoseIndex(newIndex);
       return;
     }
 
-    const baseImageForPoseChange = Object.values(currentLayer.poseImages)[0];
+    const baseImageForPoseChange = Object.values(layer.poseImages)[0];
     if (!baseImageForPoseChange) return;
 
     setError(null);
@@ -211,7 +213,7 @@ const App: React.FC = () => {
         return newHistory;
       });
       setVideoUrls([]);
-    } catch (err: unknown) {
+    } catch (err: any) {
       const errorMsg = err instanceof Error ? err.message : String(err);
       setError(getFriendlyErrorMessage(errorMsg, 'ไม่สามารถเปลี่ยนท่าทางได้'));
       setCurrentPoseIndex(prevPoseIndex);
@@ -220,6 +222,51 @@ const App: React.FC = () => {
       setLoadingMessage('');
     }
   }, [currentPoseIndex, outfitHistory, isLoading, currentOutfitIndex]);
+
+  const handleGenerateAllPoses = useCallback(async () => {
+    if (isLoading || !currentLayer) return;
+
+    const baseImage = Object.values(currentLayer.poseImages)[0];
+    if (!baseImage) return;
+
+    setIsLoading(true);
+    setError(null);
+    setVideoUrls([]);
+
+    const missingPoses = POSE_INSTRUCTIONS.filter(
+        (pose) => !currentLayer.poseImages[pose]
+    );
+
+    if (missingPoses.length === 0) {
+        setIsLoading(false);
+        return;
+    }
+
+    // Generate sequentially to show progress in UI (Colage mode will likely be active)
+    for (let i = 0; i < missingPoses.length; i++) {
+        const pose = missingPoses[i];
+        setLoadingMessage(`กำลังสร้างท่าทาง (${i + 1}/${missingPoses.length}): ${pose}...`);
+        
+        try {
+            // We use 'await' here to do it sequentially, updating state each time so users see cards pop in
+            const newImageUrl = await generatePoseVariation(baseImage, pose);
+            
+            setOutfitHistory((prevHistory: OutfitLayer[]) => {
+                const newHistory = [...prevHistory];
+                const updatedLayer = { ...newHistory[currentOutfitIndex] };
+                updatedLayer.poseImages = { ...updatedLayer.poseImages, [pose]: newImageUrl };
+                newHistory[currentOutfitIndex] = updatedLayer;
+                return newHistory;
+            });
+        } catch (err) {
+            console.error(`Failed to generate pose: ${pose}`, err);
+            // Continue to next pose even if one fails
+        }
+    }
+
+    setIsLoading(false);
+    setLoadingMessage('');
+  }, [currentLayer, isLoading, currentOutfitIndex]);
 
   const handleGenerateVideo = async (model: VideoModelType) => {
     if (!displayImageUrl || isVideoLoading) return;
@@ -236,8 +283,7 @@ const App: React.FC = () => {
     try {
       const videoUrl = await generateVideo(displayImageUrl as string, model);
       setVideoUrls(prev => [...prev, videoUrl].slice(-2));
-    } catch (err: unknown) {
-      // Narrow the error type to check for specific message strings safely.
+    } catch (err: any) {
       const errorMsg = err instanceof Error ? err.message : String(err);
       if (errorMsg.includes("Requested entity was not found")) {
         await (window as any).aistudio.openSelectKey();
@@ -251,6 +297,10 @@ const App: React.FC = () => {
 
   const handleAddItemToWardrobe = (item: WardrobeItem) => {
     setWardrobe(prev => [item, ...prev]);
+  };
+
+  const handleRemoveWardrobeItem = (itemId: string) => {
+    setWardrobe(prev => prev.filter(item => item.id !== itemId));
   };
 
   const handleSaveOutfit = () => {
@@ -306,7 +356,7 @@ const App: React.FC = () => {
             transition={{ duration: 0.5, ease: 'easeInOut' }}
           >
             <main className="flex-grow relative flex flex-col md:flex-row overflow-hidden">
-              <div className="w-full h-full flex-grow flex items-center justify-center bg-white pb-16 relative">
+              <div className="w-full h-full flex-grow flex items-center justify-center bg-gray-50 relative">
                 <Canvas 
                   displayImageUrl={displayImageUrl}
                   onStartOver={handleStartOver}
@@ -319,11 +369,13 @@ const App: React.FC = () => {
                   videoUrls={videoUrls}
                   onGenerateVideo={handleGenerateVideo}
                   onSaveOutfit={handleSaveOutfit}
+                  activeOutfitLayer={currentLayer}
+                  onGenerateAllPoses={handleGenerateAllPoses}
                 />
               </div>
 
               <aside 
-                className={`absolute md:relative md:flex-shrink-0 bottom-0 right-0 h-auto md:h-full w-full md:w-1/3 md:max-w-sm bg-white/80 backdrop-blur-md flex flex-col border-t md:border-t-0 md:border-l border-gray-200/60 transition-transform duration-500 ease-in-out ${isSheetCollapsed ? 'translate-y-[calc(100%-4.5rem)]' : 'translate-y-0'} md:translate-y-0 shadow-2xl md:shadow-none z-40`}
+                className={`absolute md:relative md:flex-shrink-0 bottom-0 right-0 h-auto md:h-full w-full md:w-1/3 md:max-w-sm bg-white/90 backdrop-blur-xl flex flex-col border-t md:border-t-0 md:border-l border-gray-200 transition-transform duration-500 ease-in-out ${isSheetCollapsed ? 'translate-y-[calc(100%-4.5rem)]' : 'translate-y-0'} md:translate-y-0 shadow-2xl md:shadow-none z-40`}
                 style={{ transitionProperty: 'transform' }}
               >
                   <button 
@@ -334,8 +386,8 @@ const App: React.FC = () => {
                   </button>
                   <div className="p-4 md:p-6 pb-24 overflow-y-auto flex-grow flex flex-col gap-8">
                     {error && (
-                      <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4 rounded-md">
-                        <p className="font-bold">ข้อผิดพลาด</p>
+                      <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-lg text-sm">
+                        <p className="font-bold mb-1">พบปัญหา</p>
                         <p>{error}</p>
                       </div>
                     )}
@@ -349,6 +401,7 @@ const App: React.FC = () => {
                       isLoading={isLoading || isVideoLoading}
                       wardrobe={wardrobe}
                       onAddItemToWardrobe={handleAddItemToWardrobe}
+                      onRemoveItemFromWardrobe={handleRemoveWardrobeItem}
                     />
                     <SavedOutfits 
                       outfits={savedOutfits} 

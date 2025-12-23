@@ -4,9 +4,10 @@
  * SPDX-License-Identifier: Apache-2.0
 */
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { RotateCcwIcon, ChevronLeftIcon, ChevronRightIcon, VideoIcon, PlayIcon, HeartIcon, DownloadIcon, XIcon, Settings2Icon } from './icons';
+import { RotateCcwIcon, ChevronLeftIcon, ChevronRightIcon, VideoIcon, PlayIcon, HeartIcon, DownloadIcon, XIcon, Settings2Icon, GridIcon, SquareIcon, Wand2Icon } from './icons';
 import Spinner from './Spinner';
 import { AnimatePresence, motion } from 'framer-motion';
+import { OutfitLayer } from '../types';
 
 export type VideoModelType = 'veo-3.1-fast-generate-preview' | 'veo-3.1-generate-preview';
 
@@ -22,6 +23,8 @@ interface CanvasProps {
   videoUrls: string[];
   onGenerateVideo: (model: VideoModelType) => void;
   onSaveOutfit: () => void;
+  activeOutfitLayer?: OutfitLayer;
+  onGenerateAllPoses: () => void;
 }
 
 const VIDEO_LOADING_MESSAGES = [
@@ -43,7 +46,9 @@ const Canvas: React.FC<CanvasProps> = ({
   availablePoseKeys,
   videoUrls,
   onGenerateVideo,
-  onSaveOutfit
+  onSaveOutfit,
+  activeOutfitLayer,
+  onGenerateAllPoses
 }) => {
   const [isPoseMenuOpen, setIsPoseMenuOpen] = useState(false);
   const [activeVideoIndex, setActiveVideoIndex] = useState<number | null>(null);
@@ -56,6 +61,8 @@ const Canvas: React.FC<CanvasProps> = ({
   const [downloadQuality, setDownloadQuality] = useState<'high' | 'standard'>('high');
   const [isProcessingDownload, setIsProcessingDownload] = useState(false);
   
+  const [viewMode, setViewMode] = useState<'single' | 'collage'>('single');
+
   const downloadMenuRef = useRef<HTMLDivElement>(null);
   const videoSettingsRef = useRef<HTMLDivElement>(null);
 
@@ -167,27 +174,51 @@ const Canvas: React.FC<CanvasProps> = ({
     if (loadingMessage.includes("วิดีโอ")) return VIDEO_LOADING_MESSAGES[messageIndex];
     return loadingMessage;
   }, [loadingMessage, messageIndex]);
+
+  // Check if we are currently generating missing poses
+  const isGeneratingCollage = isLoading && loadingMessage.includes("ท่าทาง");
   
   return (
-    <div className="w-full h-full flex items-center justify-center p-4 relative animate-zoom-in group">
-      <button 
-          onClick={onStartOver}
-          className="absolute top-4 left-4 z-30 flex items-center justify-center bg-white/60 border border-gray-300/80 text-gray-700 font-semibold py-2 px-4 rounded-full transition-all hover:bg-white hover:border-gray-400 active:scale-95 text-sm backdrop-blur-sm shadow-sm"
-      >
-          <RotateCcwIcon className="w-4 h-4 mr-2" />
-          เริ่มใหม่
-      </button>
+    <div className="w-full h-full flex flex-col p-4 relative animate-zoom-in group bg-gray-50/50">
+      
+      {/* Top Bar Controls */}
+      <div className="absolute top-4 left-4 z-30 flex items-center gap-2">
+          <button 
+              onClick={onStartOver}
+              className="flex items-center justify-center bg-white border border-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-full transition-all hover:bg-gray-50 hover:border-gray-300 active:scale-95 text-xs shadow-sm"
+          >
+              <RotateCcwIcon className="w-3.5 h-3.5 mr-2" />
+              เริ่มใหม่
+          </button>
+      </div>
 
-      {/* Export Group Buttons */}
       <div className="absolute top-4 right-4 z-30 flex items-center gap-2">
           {!isLoading && displayImageUrl && (
-              <div className="relative flex gap-2" ref={downloadMenuRef}>
+              <div className="flex gap-2" ref={downloadMenuRef}>
+                 {/* View Toggle */}
+                 <div className="bg-white border border-gray-200 rounded-full p-1 flex items-center shadow-sm mr-2">
+                    <button 
+                        onClick={() => setViewMode('single')}
+                        className={`p-2 rounded-full transition-all ${viewMode === 'single' ? 'bg-gray-900 text-white shadow-md' : 'text-gray-400 hover:text-gray-600'}`}
+                        title="มุมมองเดี่ยว"
+                    >
+                        <SquareIcon className="w-4 h-4" />
+                    </button>
+                    <button 
+                        onClick={() => setViewMode('collage')}
+                        className={`p-2 rounded-full transition-all ${viewMode === 'collage' ? 'bg-gray-900 text-white shadow-md' : 'text-gray-400 hover:text-gray-600'}`}
+                        title="มุมมองคอลลาจ"
+                    >
+                        <GridIcon className="w-4 h-4" />
+                    </button>
+                 </div>
+
                   <button 
                     onClick={() => setShowDownloadMenu(!showDownloadMenu)}
-                    className="flex items-center justify-center bg-white/60 border border-gray-300 text-gray-700 font-semibold py-2 px-4 rounded-full transition-all hover:bg-white hover:border-gray-400 active:scale-95 text-sm backdrop-blur-sm shadow-sm"
+                    className="flex items-center justify-center bg-white border border-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-full transition-all hover:bg-gray-50 hover:border-gray-300 active:scale-95 text-xs shadow-sm"
                   >
-                    <DownloadIcon className="w-4 h-4 mr-2" />
-                    ดาวน์โหลดรูป
+                    <DownloadIcon className="w-3.5 h-3.5 mr-2" />
+                    ดาวน์โหลด
                   </button>
 
                   <AnimatePresence>
@@ -196,9 +227,10 @@ const Canvas: React.FC<CanvasProps> = ({
                         initial={{ opacity: 0, y: 10, scale: 0.95 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                        className="absolute right-0 mt-12 w-64 bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-gray-200 p-4 z-50 overflow-hidden"
+                        className="absolute right-0 mt-12 w-64 bg-white rounded-2xl shadow-xl border border-gray-100 p-4 z-50 overflow-hidden"
                       >
-                        <div className="space-y-4">
+                         {/* Download Menu Content (Same as before) */}
+                         <div className="space-y-4">
                           <div className="flex justify-between items-center border-b pb-2">
                             <h3 className="font-bold text-gray-900 text-sm">ตั้งค่าการดาวน์โหลด</h3>
                             <button onClick={() => setShowDownloadMenu(false)}>
@@ -219,24 +251,7 @@ const Canvas: React.FC<CanvasProps> = ({
                               ))}
                             </div>
                           </div>
-                          <div className="space-y-2">
-                            <label className="text-[10px] uppercase tracking-widest text-gray-500 font-bold">ความละเอียด</label>
-                            <div className="flex gap-2">
-                              <button
-                                onClick={() => setDownloadQuality('high')}
-                                className={`flex-1 py-1.5 rounded-lg text-xs font-semibold border transition-all ${downloadQuality === 'high' ? 'bg-gray-900 text-white border-gray-900 shadow-md' : 'bg-white text-gray-600 border-gray-200'}`}
-                              >
-                                สูงสุด (HD)
-                              </button>
-                              <button
-                                onClick={() => setDownloadQuality('standard')}
-                                className={`flex-1 py-1.5 rounded-lg text-xs font-semibold border transition-all ${downloadQuality === 'standard' ? 'bg-gray-900 text-white border-gray-900 shadow-md' : 'bg-white text-gray-600 border-gray-200'}`}
-                              >
-                                มาตรฐาน
-                              </button>
-                            </div>
-                          </div>
-                          <button onClick={executeDownload} disabled={isProcessingDownload} className="w-full py-2 bg-indigo-600 text-white rounded-xl font-bold text-sm shadow-lg flex items-center justify-center gap-2">
+                          <button onClick={executeDownload} disabled={isProcessingDownload} className="w-full py-2 bg-indigo-600 text-white rounded-xl font-bold text-sm shadow-lg flex items-center justify-center gap-2 hover:bg-indigo-700">
                             {isProcessingDownload ? <Spinner className="w-4 h-4 border-white/30 border-t-white" /> : <DownloadIcon className="w-4 h-4" />}
                             ดาวน์โหลดตอนนี้
                           </button>
@@ -247,20 +262,20 @@ const Canvas: React.FC<CanvasProps> = ({
                   
                   <button 
                     onClick={onSaveOutfit}
-                    className="flex items-center justify-center bg-white/60 border border-pink-200 text-pink-600 font-semibold py-2 px-4 rounded-full transition-all hover:bg-pink-50 hover:border-pink-300 active:scale-95 text-sm backdrop-blur-sm shadow-sm"
+                    className="flex items-center justify-center bg-white border border-pink-200 text-pink-600 font-semibold py-2 px-4 rounded-full transition-all hover:bg-pink-50 hover:border-pink-300 active:scale-95 text-xs shadow-sm"
                   >
-                    <HeartIcon className="w-4 h-4 mr-2 fill-pink-500" />
-                    บันทึกชุดนี้
+                    <HeartIcon className="w-3.5 h-3.5 mr-2 fill-pink-500" />
+                    บันทึก
                   </button>
               </div>
           )}
       </div>
 
-      {videoUrls.length > 0 && !isLoading && (
-        <div className="absolute top-16 right-4 z-30 flex flex-col gap-2">
+      {videoUrls.length > 0 && !isLoading && viewMode === 'single' && (
+        <div className="absolute top-20 right-4 z-20 flex flex-col gap-2">
             <button 
                 onClick={() => setActiveVideoIndex(null)}
-                className={`px-4 py-2 rounded-full text-xs font-bold backdrop-blur-sm border transition-all ${activeVideoIndex === null ? 'bg-gray-900 text-white border-gray-900' : 'bg-white/60 text-gray-700 border-gray-300'}`}
+                className={`px-3 py-1.5 rounded-full text-[10px] font-bold backdrop-blur-sm border transition-all ${activeVideoIndex === null ? 'bg-gray-900 text-white border-gray-900' : 'bg-white/80 text-gray-600 border-gray-200'}`}
             >
                 ภาพนิ่ง
             </button>
@@ -268,177 +283,236 @@ const Canvas: React.FC<CanvasProps> = ({
                 <button 
                     key={i}
                     onClick={() => setActiveVideoIndex(i)}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold backdrop-blur-sm border transition-all ${activeVideoIndex === i ? 'bg-gray-900 text-white border-gray-900' : 'bg-white/60 text-gray-700 border-gray-300'}`}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold backdrop-blur-sm border transition-all ${activeVideoIndex === i ? 'bg-gray-900 text-white border-gray-900' : 'bg-white/80 text-gray-600 border-gray-200'}`}
                 >
-                    <PlayIcon className="w-3 h-3" />
-                    วิดีโอคลิป {i + 1}
+                    <PlayIcon className="w-2.5 h-2.5" />
+                    วิดีโอ {i + 1}
                 </button>
             ))}
         </div>
       )}
 
-      {/* Main Display Area - Optimized for 9:16 Full Body */}
-      <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
-        <div className="relative aspect-[9/16] h-full max-h-[calc(100vh-180px)] w-auto flex items-center justify-center">
-            {displayImageUrl ? (
-              <>
-                {activeVideoIndex !== null ? (
-                    <video
-                        key={videoUrls[activeVideoIndex]}
-                        src={videoUrls[activeVideoIndex]}
-                        autoPlay
-                        loop
-                        className="w-full h-full object-contain rounded-2xl shadow-2xl"
-                    />
+      {/* Main Content Area */}
+      <div className="flex-grow w-full h-full flex items-center justify-center overflow-hidden py-16 px-4">
+        
+        {/* SINGLE VIEW MODE */}
+        {viewMode === 'single' && (
+            <div className="relative aspect-[9/16] h-full max-h-full w-auto flex items-center justify-center">
+                {displayImageUrl ? (
+                <>
+                    {activeVideoIndex !== null ? (
+                        <video
+                            key={videoUrls[activeVideoIndex]}
+                            src={videoUrls[activeVideoIndex]}
+                            autoPlay
+                            loop
+                            className="w-full h-full object-contain rounded-2xl shadow-2xl"
+                        />
+                    ) : (
+                        <img
+                            key={displayImageUrl}
+                            src={displayImageUrl}
+                            alt="Model"
+                            className="w-full h-full object-contain transition-opacity duration-500 animate-fade-in rounded-2xl shadow-2xl bg-white"
+                        />
+                    )}
+                </>
                 ) : (
-                    <img
-                        key={displayImageUrl}
-                        src={displayImageUrl}
-                        alt="Model"
-                        className="w-full h-full object-contain transition-opacity duration-500 animate-fade-in rounded-2xl shadow-lg"
-                    />
+                    <div className="w-full h-full bg-white border border-gray-200 rounded-2xl flex flex-col items-center justify-center shadow-inner">
+                    <Spinner />
+                    <p className="text-sm font-serif text-gray-500 mt-4 px-4 text-center">กำลังเตรียมสตูดิโอ...</p>
+                    </div>
                 )}
-              </>
-            ) : (
-                <div className="w-full h-full bg-gray-100 border border-gray-200 rounded-2xl flex flex-col items-center justify-center">
-                  <Spinner />
-                  <p className="text-md font-serif text-gray-600 mt-4 px-4 text-center">กำลังโหลดนางแบบสัดส่วน 9:16...</p>
-                </div>
-            )}
-            
-            <AnimatePresence>
-              {isLoading && (
-                  <motion.div
-                      className="absolute inset-0 bg-white/90 backdrop-blur-xl flex flex-col items-center justify-center z-20 rounded-2xl"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                  >
-                      <Spinner />
-                      <motion.p 
-                        key={currentDisplayMessage}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="text-lg font-serif text-gray-700 mt-6 text-center px-8"
-                      >
-                        {currentDisplayMessage}
-                      </motion.p>
-                      {loadingMessage.includes("วิดีโอ") && (
-                        <p className="text-xs text-gray-500 mt-2 italic">การสร้างวิดีโออาจใช้เวลาประมาณ 1-3 นาที</p>
-                      )}
-                  </motion.div>
-              )}
-            </AnimatePresence>
-        </div>
-      </div>
-
-      {/* Control bar */}
-      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-4 transition-all duration-300 w-full px-4">
-        {!isLoading && displayImageUrl && (
-            <div className="flex items-center gap-2">
-                <div className="relative" ref={videoSettingsRef}>
-                    <button 
-                        onClick={() => setShowVideoSettings(!showVideoSettings)}
-                        className="p-3.5 bg-gray-100 text-gray-700 rounded-full shadow-lg hover:bg-gray-200 transition-all border border-gray-300"
-                        title="เลือก Video Engine"
-                    >
-                        <Settings2Icon className="w-6 h-6" />
-                    </button>
-                    
-                    <AnimatePresence>
-                        {showVideoSettings && (
-                            <motion.div
-                                initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                                animate={{ opacity: 1, y: -130, scale: 1 }}
-                                exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                                className="absolute left-0 w-64 bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-gray-200 p-3"
-                            >
-                                <h4 className="text-[10px] uppercase tracking-widest text-gray-500 font-bold mb-2">Video Engine (Model)</h4>
-                                <div className="space-y-1">
-                                    <button 
-                                        onClick={() => { setSelectedVideoModel('veo-3.1-fast-generate-preview'); setShowVideoSettings(false); }}
-                                        className={`w-full text-left p-2 rounded-lg text-xs transition-all ${selectedVideoModel === 'veo-3.1-fast-generate-preview' ? 'bg-indigo-50 border border-indigo-200 font-bold' : 'hover:bg-gray-100'}`}
-                                    >
-                                        <div className="flex justify-between"><span>Veo 3.1 Fast</span><span className="text-[10px] text-green-600">รวดเร็ว</span></div>
-                                        <p className="text-[10px] text-gray-400 font-normal">ประมวลผลไว เหมาะสำหรับทดสอบท่าทาง</p>
-                                    </button>
-                                    <button 
-                                        onClick={() => { setSelectedVideoModel('veo-3.1-generate-preview'); setShowVideoSettings(false); }}
-                                        className={`w-full text-left p-2 rounded-lg text-xs transition-all ${selectedVideoModel === 'veo-3.1-generate-preview' ? 'bg-indigo-50 border border-indigo-200 font-bold' : 'hover:bg-gray-100'}`}
-                                    >
-                                        <div className="flex justify-between"><span>Veo 3.1 Pro</span><span className="text-[10px] text-indigo-600">HQ</span></div>
-                                        <p className="text-[10px] text-gray-400 font-normal">คุณภาพสูงสุด Cinematic และสมจริงกว่า</p>
-                                    </button>
-                                </div>
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
-                </div>
-
-                <button 
-                    onClick={() => onGenerateVideo(selectedVideoModel)}
-                    disabled={videoUrls.length >= 2}
-                    className="flex items-center gap-2 px-8 py-3.5 bg-indigo-600 text-white rounded-full font-bold shadow-2xl hover:bg-indigo-700 transition-all active:scale-95 disabled:opacity-50 disabled:bg-gray-400 text-base"
-                >
-                    <VideoIcon className="w-5 h-5" />
-                    {videoUrls.length === 0 ? "สร้างวิดีโอแฟชั่น" : "สร้างคลิปเพิ่ม"}
-                </button>
-            </div>
-        )}
-
-        {displayImageUrl && !isLoading && (
-            <div 
-            className="flex items-center justify-center gap-2 bg-white/90 backdrop-blur-md rounded-full p-2 border border-gray-300/50 shadow-xl"
-            onMouseEnter={() => setIsPoseMenuOpen(true)}
-            onMouseLeave={() => setIsPoseMenuOpen(false)}
-            >
-            <AnimatePresence>
-                {isPoseMenuOpen && (
+                
+                <AnimatePresence>
+                {isLoading && !isGeneratingCollage && (
                     <motion.div
-                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                        className="absolute bottom-full mb-3 w-64 bg-white/95 backdrop-blur-lg rounded-xl p-2 border border-gray-200/80 shadow-2xl"
+                        className="absolute inset-0 bg-white/80 backdrop-blur-md flex flex-col items-center justify-center z-20 rounded-2xl border border-white/50"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
                     >
-                        <div className="grid grid-cols-2 gap-2">
-                            {poseInstructions.map((pose, index) => (
-                                <button
-                                    key={pose}
-                                    onClick={() => onSelectPose(index)}
-                                    disabled={isLoading || index === currentPoseIndex}
-                                    className="w-full text-left text-xs font-medium text-gray-800 p-2 rounded-md hover:bg-gray-200/70 disabled:font-bold disabled:bg-indigo-50"
-                                >
-                                    {pose}
-                                </button>
-                            ))}
-                        </div>
+                        <Spinner className="w-10 h-10 text-indigo-600" />
+                        <motion.p 
+                            key={currentDisplayMessage}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="text-base font-serif text-gray-800 mt-6 text-center px-8"
+                        >
+                            {currentDisplayMessage}
+                        </motion.p>
                     </motion.div>
                 )}
-            </AnimatePresence>
-            
-            <button 
-                onClick={handlePreviousPose}
-                className="p-2 rounded-full hover:bg-gray-100 active:scale-90 transition-all disabled:opacity-50"
-                disabled={isLoading}
-            >
-                <ChevronLeftIcon className="w-5 h-5 text-gray-800" />
-            </button>
-            <button 
-                className="text-sm font-semibold text-gray-800 w-40 text-center truncate px-2"
-                onClick={() => setIsPoseMenuOpen(!isPoseMenuOpen)}
-            >
-                {poseInstructions[currentPoseIndex]}
-            </button>
-            <button 
-                onClick={handleNextPose}
-                className="p-2 rounded-full hover:bg-gray-100 active:scale-90 transition-all disabled:opacity-50"
-                disabled={isLoading}
-            >
-                <ChevronRightIcon className="w-5 h-5 text-gray-800" />
-            </button>
+                </AnimatePresence>
+            </div>
+        )}
+
+        {/* COLLAGE VIEW MODE */}
+        {viewMode === 'collage' && (
+            <div className="w-full h-full max-w-4xl overflow-y-auto pr-2 custom-scrollbar">
+                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4 pb-20">
+                    {poseInstructions.map((pose, index) => {
+                        const hasImage = activeOutfitLayer?.poseImages[pose];
+                        const isCurrent = currentPoseIndex === index;
+                        
+                        return (
+                            <div 
+                                key={pose} 
+                                className={`relative aspect-[9/16] rounded-xl overflow-hidden border transition-all cursor-pointer group ${isCurrent ? 'ring-2 ring-indigo-500 shadow-lg' : 'border-gray-200 hover:border-gray-300'}`}
+                                onClick={() => {
+                                    onSelectPose(index);
+                                    // Optionally switch back to single view on click? For now, let's keep in collage.
+                                }}
+                            >
+                                {hasImage ? (
+                                    <img src={hasImage} alt={pose} className="w-full h-full object-cover" />
+                                ) : (
+                                    <div className="w-full h-full bg-gray-50 flex flex-col items-center justify-center p-4 text-center">
+                                        {isGeneratingCollage && index === currentPoseIndex ? (
+                                            <div className="flex flex-col items-center">
+                                                <Spinner className="w-6 h-6 text-indigo-500 mb-2"/>
+                                                <span className="text-[10px] text-indigo-600 font-bold animate-pulse">กำลังสร้าง...</span>
+                                            </div>
+                                        ) : (
+                                            <>
+                                                <div className="w-8 h-8 rounded-full bg-gray-200 mb-2" />
+                                                <span className="text-[10px] text-gray-400">{pose}</span>
+                                            </>
+                                        )}
+                                    </div>
+                                )}
+                                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <p className="text-white text-[10px] font-medium">{pose}</p>
+                                </div>
+                            </div>
+                        )
+                    })}
+                 </div>
+                 
+                 {/* Empty State / Call to Action in Collage */}
+                 {!isGeneratingCollage && availablePoseKeys.length < poseInstructions.length && (
+                     <div className="sticky bottom-4 flex justify-center w-full z-10">
+                        <button 
+                            onClick={onGenerateAllPoses}
+                            className="bg-indigo-600 text-white px-6 py-3 rounded-full shadow-xl font-bold flex items-center gap-2 hover:bg-indigo-700 hover:scale-105 transition-all text-sm"
+                        >
+                            <Wand2Icon className="w-4 h-4" />
+                            Magic Generate All ({poseInstructions.length - availablePoseKeys.length} Remaining)
+                        </button>
+                     </div>
+                 )}
             </div>
         )}
       </div>
+
+      {/* Control bar (Only show in Single View) */}
+      {viewMode === 'single' && (
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-4 transition-all duration-300 w-full px-4">
+            {!isLoading && displayImageUrl && (
+                <div className="flex items-center gap-2">
+                    <div className="relative" ref={videoSettingsRef}>
+                        <button 
+                            onClick={() => setShowVideoSettings(!showVideoSettings)}
+                            className="p-3.5 bg-white text-gray-700 rounded-full shadow-lg hover:bg-gray-50 transition-all border border-gray-200"
+                            title="เลือก Video Engine"
+                        >
+                            <Settings2Icon className="w-5 h-5" />
+                        </button>
+                        
+                        <AnimatePresence>
+                            {showVideoSettings && (
+                                <motion.div
+                                    initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                                    animate={{ opacity: 1, y: -130, scale: 1 }}
+                                    exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                                    className="absolute left-0 w-64 bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-gray-200 p-3"
+                                >
+                                    <h4 className="text-[10px] uppercase tracking-widest text-gray-500 font-bold mb-2">Video Engine</h4>
+                                    <div className="space-y-1">
+                                        <button 
+                                            onClick={() => { setSelectedVideoModel('veo-3.1-fast-generate-preview'); setShowVideoSettings(false); }}
+                                            className={`w-full text-left p-2 rounded-lg text-xs transition-all ${selectedVideoModel === 'veo-3.1-fast-generate-preview' ? 'bg-indigo-50 border border-indigo-200 font-bold' : 'hover:bg-gray-100'}`}
+                                        >
+                                            <div className="flex justify-between"><span>Veo 3.1 Fast</span><span className="text-[10px] text-green-600">รวดเร็ว</span></div>
+                                            <p className="text-[10px] text-gray-400 font-normal">ประมวลผลไว เหมาะสำหรับทดสอบท่าทาง</p>
+                                        </button>
+                                        <button 
+                                            onClick={() => { setSelectedVideoModel('veo-3.1-generate-preview'); setShowVideoSettings(false); }}
+                                            className={`w-full text-left p-2 rounded-lg text-xs transition-all ${selectedVideoModel === 'veo-3.1-generate-preview' ? 'bg-indigo-50 border border-indigo-200 font-bold' : 'hover:bg-gray-100'}`}
+                                        >
+                                            <div className="flex justify-between"><span>Veo 3.1 Pro</span><span className="text-[10px] text-indigo-600">HQ</span></div>
+                                            <p className="text-[10px] text-gray-400 font-normal">คุณภาพสูงสุด Cinematic และสมจริงกว่า</p>
+                                        </button>
+                                    </div>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+                    </div>
+
+                    <button 
+                        onClick={() => onGenerateVideo(selectedVideoModel)}
+                        disabled={videoUrls.length >= 2}
+                        className="flex items-center gap-2 px-8 py-3.5 bg-indigo-600 text-white rounded-full font-bold shadow-2xl hover:bg-indigo-700 transition-all active:scale-95 disabled:opacity-50 disabled:bg-gray-400 text-base"
+                    >
+                        <VideoIcon className="w-5 h-5" />
+                        {videoUrls.length === 0 ? "สร้างวิดีโอ" : "สร้างเพิ่ม"}
+                    </button>
+                </div>
+            )}
+
+            {displayImageUrl && !isLoading && (
+                <div 
+                className="flex items-center justify-center gap-2 bg-white/90 backdrop-blur-md rounded-full p-1.5 border border-gray-200 shadow-xl"
+                onMouseEnter={() => setIsPoseMenuOpen(true)}
+                onMouseLeave={() => setIsPoseMenuOpen(false)}
+                >
+                <AnimatePresence>
+                    {isPoseMenuOpen && (
+                        <motion.div
+                            initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                            className="absolute bottom-full mb-3 w-64 bg-white/95 backdrop-blur-lg rounded-xl p-2 border border-gray-200 shadow-2xl"
+                        >
+                            <div className="grid grid-cols-1 gap-1">
+                                {poseInstructions.map((pose, index) => (
+                                    <button
+                                        key={pose}
+                                        onClick={() => onSelectPose(index)}
+                                        disabled={isLoading || index === currentPoseIndex}
+                                        className={`w-full text-left text-xs font-medium p-2 rounded-lg flex justify-between items-center ${index === currentPoseIndex ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-gray-700 hover:bg-gray-100'}`}
+                                    >
+                                        {pose}
+                                        {activeOutfitLayer?.poseImages[pose] && <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>}
+                                    </button>
+                                ))}
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+                
+                <button 
+                    onClick={handlePreviousPose}
+                    className="p-2.5 rounded-full hover:bg-gray-100 active:scale-90 transition-all disabled:opacity-50"
+                    disabled={isLoading}
+                >
+                    <ChevronLeftIcon className="w-5 h-5 text-gray-800" />
+                </button>
+                <div className="flex flex-col items-center justify-center w-40 px-2 cursor-pointer" onClick={() => setIsPoseMenuOpen(!isPoseMenuOpen)}>
+                    <span className="text-xs font-bold text-gray-800 truncate w-full text-center">{poseInstructions[currentPoseIndex]}</span>
+                    <span className="text-[9px] text-gray-500">{availablePoseKeys.length}/{poseInstructions.length} Poses</span>
+                </div>
+                <button 
+                    onClick={handleNextPose}
+                    className="p-2.5 rounded-full hover:bg-gray-100 active:scale-90 transition-all disabled:opacity-50"
+                    disabled={isLoading}
+                >
+                    <ChevronRightIcon className="w-5 h-5 text-gray-800" />
+                </button>
+                </div>
+            )}
+        </div>
+      )}
     </div>
   );
 };

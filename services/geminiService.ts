@@ -83,10 +83,10 @@ export const generateFashionItem = async (category: string, style: string = 'tre
     return handleApiResponse(response);
 };
 
-export const generateVirtualTryOnImage = async (modelImageUrl: string, itemImage: File): Promise<string> => {
+export const generateVirtualTryOnImage = async (modelImageUrl: string, itemImage: File | string): Promise<string> => {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const modelImagePart = dataUrlToPart(modelImageUrl);
-    const itemImagePart = await fileToPart(itemImage);
+    const itemImagePart = typeof itemImage === 'string' ? dataUrlToPart(itemImage) : await fileToPart(itemImage);
     const prompt = `You are an expert virtual try-on AI. You will be given a 'base image' of a model and an 'item image' (either clothing or an accessory like a hat, sunglasses, or bag).
     
 Your task:
@@ -142,3 +142,4 @@ export const generateVideo = async (imageSource: string, modelName: string = 've
     const blob = await response.blob();
     return URL.createObjectURL(blob);
 };
+    

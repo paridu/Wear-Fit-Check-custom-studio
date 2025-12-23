@@ -47,11 +47,13 @@ const StartScreen: React.FC<StartScreenProps> = ({ onModelFinalized }) => {
   };
 
   const handleRemoveBackground = async () => {
-    if (!userImageUrl || !originalFile) return;
+    const source = userImageUrl || originalFile;
+    if (!source) return;
+
     setIsRemovingBg(true);
     setError(null);
     try {
-        const result = await removeBackground(originalFile);
+        const result = await removeBackground(source);
         setProcessedUserImageUrl(result);
     } catch (err) {
         setError(getFriendlyErrorMessage(err, 'ลบพื้นหลังไม่สำเร็จ'));
@@ -61,8 +63,10 @@ const StartScreen: React.FC<StartScreenProps> = ({ onModelFinalized }) => {
   };
 
   const handleGenerateModel = async () => {
-    const source = processedUserImageUrl || originalFile;
+    // Prefer using the string Data URL (processed or original) to avoid File reading issues
+    const source = processedUserImageUrl || userImageUrl || originalFile;
     if (!source) return;
+
     setIsGenerating(true);
     setError(null);
     try {
@@ -204,3 +208,4 @@ const StartScreen: React.FC<StartScreenProps> = ({ onModelFinalized }) => {
 };
 
 export default StartScreen;
+    

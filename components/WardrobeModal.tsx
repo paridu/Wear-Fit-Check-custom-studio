@@ -5,7 +5,7 @@
 */
 import React, { useState } from 'react';
 import type { WardrobeItem } from '../types';
-import { UploadCloudIcon, CheckCircleIcon, Wand2Icon } from './icons';
+import { UploadCloudIcon, CheckCircleIcon, Wand2Icon, Trash2Icon } from './icons';
 import { generateFashionItem } from '../services/geminiService';
 import Spinner from './Spinner';
 
@@ -15,6 +15,7 @@ interface WardrobePanelProps {
   isLoading: boolean;
   wardrobe: WardrobeItem[];
   onAddItemToWardrobe: (item: WardrobeItem) => void;
+  onRemoveItemFromWardrobe?: (itemId: string) => void;
 }
 
 const urlToFile = (url: string, filename: string): Promise<File> => {
@@ -39,7 +40,14 @@ const urlToFile = (url: string, filename: string): Promise<File> => {
     });
 };
 
-const WardrobePanel: React.FC<WardrobePanelProps> = ({ onGarmentSelect, activeGarmentIds, isLoading, wardrobe, onAddItemToWardrobe }) => {
+const WardrobePanel: React.FC<WardrobePanelProps> = ({ 
+    onGarmentSelect, 
+    activeGarmentIds, 
+    isLoading, 
+    wardrobe, 
+    onAddItemToWardrobe,
+    onRemoveItemFromWardrobe
+}) => {
     const [error, setError] = useState<string | null>(null);
     const [isGenerating, setIsGenerating] = useState<string | null>(null);
 
@@ -98,22 +106,32 @@ const WardrobePanel: React.FC<WardrobePanelProps> = ({ onGarmentSelect, activeGa
             {items.map((item) => {
                 const isActive = activeGarmentIds.includes(item.id);
                 return (
-                    <button
-                        key={item.id}
-                        onClick={() => handleGarmentClick(item)}
-                        disabled={isLoading || isActive}
-                        className="relative aspect-square border border-gray-100 rounded-xl overflow-hidden transition-all duration-200 group disabled:opacity-60 bg-white"
-                    >
-                        <img src={item.url} alt={item.name} className="w-full h-full object-contain p-1" />
-                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                            <p className="text-white text-[10px] font-bold text-center px-1">{item.name}</p>
-                        </div>
-                        {isActive && (
-                            <div className="absolute inset-0 bg-gray-900/70 flex items-center justify-center">
-                                <CheckCircleIcon className="w-8 h-8 text-white" />
+                    <div key={item.id} className="relative group">
+                        <button
+                            onClick={() => handleGarmentClick(item)}
+                            disabled={isLoading || isActive}
+                            className="w-full relative aspect-square border border-gray-100 rounded-xl overflow-hidden transition-all duration-200 group-hover:shadow-md disabled:opacity-60 bg-white"
+                        >
+                            <img src={item.url} alt={item.name} className="w-full h-full object-contain p-2" />
+                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                                <p className="text-white text-[10px] font-bold text-center px-1">{item.name}</p>
                             </div>
+                            {isActive && (
+                                <div className="absolute inset-0 bg-gray-900/70 flex items-center justify-center z-20">
+                                    <CheckCircleIcon className="w-8 h-8 text-white" />
+                                </div>
+                            )}
+                        </button>
+                        {onRemoveItemFromWardrobe && !isActive && (
+                            <button 
+                                onClick={(e) => { e.stopPropagation(); onRemoveItemFromWardrobe(item.id); }}
+                                className="absolute -top-1 -right-1 z-30 bg-white rounded-full p-1.5 shadow-md border border-gray-100 text-gray-400 hover:text-red-500 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity"
+                                title="ลบออกจากคอลเลกชัน"
+                            >
+                                <Trash2Icon className="w-3 h-3" />
+                            </button>
                         )}
-                    </button>
+                    </div>
                 );
             })}
         </div>
@@ -140,25 +158,35 @@ const WardrobePanel: React.FC<WardrobePanelProps> = ({ onGarmentSelect, activeGa
                         <button 
                             onClick={() => handleAiGenerate(cat.prompt, cat.key)}
                             disabled={!!isGenerating || isLoading}
-                            className="text-[11px] font-bold px-3 py-1.5 bg-white border border-indigo-200 text-indigo-600 rounded-full hover:bg-indigo-600 hover:text-white transition-all disabled:opacity-50 flex items-center gap-1.5"
+                            className="text-[11px] font-bold px-3 py-1.5 bg-white border border-indigo-200 text-indigo-600 rounded-full hover:bg-indigo-600 hover:text-white transition-all disabled:opacity-50 flex items-center gap-1.5 shadow-sm"
                         >
                             {isGenerating === cat.prompt ? <Spinner className="w-3 h-3 border-indigo-400" /> : <Wand2Icon className="w-3 h-3" />}
                             {cat.label.split(' ')[0]}
                         </button>
-                        <label className="cursor-pointer p-1.5 bg-gray-100 rounded-full hover:bg-gray-200" title={`อัปโหลด ${cat.label}`}>
+                        <label className="cursor-pointer p-1.5 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors" title={`อัปโหลด ${cat.label}`}>
                             <UploadCloudIcon className="w-3.5 h-3.5 text-gray-600" />
                             <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileChange(e, cat.key)} disabled={isLoading} />
                         </label>
                     </div>
                 ))}
             </div>
-            {error && <p className="text-red-500 text-xs mt-3">{error}</p>}
+            {error && <p className="text-red-500 text-xs mt-3 bg-red-50 p-2 rounded">{error}</p>}
         </section>
 
         <div className="space-y-6">
             <div>
-                <h2 className="text-xl font-serif tracking-wider text-gray-800 mb-3">ไอเทมในคอลเลกชัน</h2>
-                {renderGrid(wardrobe)}
+                <h2 className="text-xl font-serif tracking-wider text-gray-800 mb-3 flex items-center justify-between">
+                    คอลเลกชันส่วนตัว
+                    <span className="text-xs font-sans text-gray-400 font-normal">{wardrobe.length} ไอเทม</span>
+                </h2>
+                {wardrobe.length === 0 ? (
+                     <div className="text-center py-10 border-2 border-dashed border-gray-200 rounded-xl bg-gray-50/50">
+                        <p className="text-gray-400 text-sm">ยังไม่มีไอเทมในคอลเลกชัน</p>
+                        <p className="text-xs text-gray-300 mt-1">อัปโหลดหรือใช้ AI สร้างได้เลย</p>
+                     </div>
+                ) : (
+                    renderGrid(wardrobe)
+                )}
             </div>
         </div>
     </div>
