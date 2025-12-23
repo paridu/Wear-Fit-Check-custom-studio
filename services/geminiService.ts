@@ -11,7 +11,7 @@ const fileToPart = async (file: File) => {
         const reader = new FileReader();
         reader.readAsDataURL(file);
         reader.onload = () => resolve(reader.result as string);
-        reader.onerror = error => reject(error);
+        reader.onerror = () => reject(new Error(`Failed to read file: ${reader.error?.message || 'Unknown file reading error'}`));
     });
     const { mimeType, data } = dataUrlToParts(dataUrl);
     return { inlineData: { mimeType, data } };

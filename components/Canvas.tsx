@@ -277,56 +277,59 @@ const Canvas: React.FC<CanvasProps> = ({
         </div>
       )}
 
-      <div className="relative w-full h-full flex items-center justify-center">
-        {displayImageUrl ? (
-          <>
-            {activeVideoIndex !== null ? (
-                <video
-                    key={videoUrls[activeVideoIndex]}
-                    src={videoUrls[activeVideoIndex]}
-                    autoPlay
-                    loop
-                    className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
-                />
+      {/* Main Display Area - Optimized for 9:16 Full Body */}
+      <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
+        <div className="relative aspect-[9/16] h-full max-h-[calc(100vh-180px)] w-auto flex items-center justify-center">
+            {displayImageUrl ? (
+              <>
+                {activeVideoIndex !== null ? (
+                    <video
+                        key={videoUrls[activeVideoIndex]}
+                        src={videoUrls[activeVideoIndex]}
+                        autoPlay
+                        loop
+                        className="w-full h-full object-contain rounded-2xl shadow-2xl"
+                    />
+                ) : (
+                    <img
+                        key={displayImageUrl}
+                        src={displayImageUrl}
+                        alt="Model"
+                        className="w-full h-full object-contain transition-opacity duration-500 animate-fade-in rounded-2xl shadow-lg"
+                    />
+                )}
+              </>
             ) : (
-                <img
-                    key={displayImageUrl}
-                    src={displayImageUrl}
-                    alt="Model"
-                    className="max-w-full max-h-full object-contain transition-opacity duration-500 animate-fade-in rounded-lg shadow-lg"
-                />
-            )}
-          </>
-        ) : (
-            <div className="w-[400px] h-[600px] bg-gray-100 border border-gray-200 rounded-lg flex flex-col items-center justify-center">
-              <Spinner />
-              <p className="text-md font-serif text-gray-600 mt-4">กำลังโหลดนางแบบ...</p>
-            </div>
-        )}
-        
-        <AnimatePresence>
-          {isLoading && (
-              <motion.div
-                  className="absolute inset-0 bg-white/90 backdrop-blur-xl flex flex-col items-center justify-center z-20 rounded-lg"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-              >
+                <div className="w-full h-full bg-gray-100 border border-gray-200 rounded-2xl flex flex-col items-center justify-center">
                   <Spinner />
-                  <motion.p 
-                    key={currentDisplayMessage}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="text-lg font-serif text-gray-700 mt-6 text-center px-8"
+                  <p className="text-md font-serif text-gray-600 mt-4 px-4 text-center">กำลังโหลดนางแบบสัดส่วน 9:16...</p>
+                </div>
+            )}
+            
+            <AnimatePresence>
+              {isLoading && (
+                  <motion.div
+                      className="absolute inset-0 bg-white/90 backdrop-blur-xl flex flex-col items-center justify-center z-20 rounded-2xl"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
                   >
-                    {currentDisplayMessage}
-                  </motion.p>
-                  {loadingMessage.includes("วิดีโอ") && (
-                    <p className="text-xs text-gray-500 mt-2 italic">การสร้างวิดีโออาจใช้เวลาประมาณ 1-3 นาที</p>
-                  )}
-              </motion.div>
-          )}
-        </AnimatePresence>
+                      <Spinner />
+                      <motion.p 
+                        key={currentDisplayMessage}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="text-lg font-serif text-gray-700 mt-6 text-center px-8"
+                      >
+                        {currentDisplayMessage}
+                      </motion.p>
+                      {loadingMessage.includes("วิดีโอ") && (
+                        <p className="text-xs text-gray-500 mt-2 italic">การสร้างวิดีโออาจใช้เวลาประมาณ 1-3 นาที</p>
+                      )}
+                  </motion.div>
+              )}
+            </AnimatePresence>
+        </div>
       </div>
 
       {/* Control bar */}

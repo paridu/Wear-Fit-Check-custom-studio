@@ -1,4 +1,3 @@
-
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -164,9 +163,9 @@ const App: React.FC = () => {
         return [...prev, garmentInfo];
       });
       setVideoUrls([]);
-    } catch (err: any) {
-      // Changed to any to handle potential unknown type incompatibility
-      setError(getFriendlyErrorMessage(err, 'ไม่สามารถใช้ไอเทมนี้ได้'));
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      setError(getFriendlyErrorMessage(errorMsg, 'ไม่สามารถใช้ไอเทมนี้ได้'));
     } finally {
       setIsLoading(false);
       setLoadingMessage('');
@@ -212,9 +211,9 @@ const App: React.FC = () => {
         return newHistory;
       });
       setVideoUrls([]);
-    } catch (err: any) {
-      // Changed to any to handle potential unknown type incompatibility
-      setError(getFriendlyErrorMessage(err, 'ไม่สามารถเปลี่ยนท่าทางได้'));
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      setError(getFriendlyErrorMessage(errorMsg, 'ไม่สามารถเปลี่ยนท่าทางได้'));
       setCurrentPoseIndex(prevPoseIndex);
     } finally {
       setIsLoading(false);
@@ -237,13 +236,13 @@ const App: React.FC = () => {
     try {
       const videoUrl = await generateVideo(displayImageUrl as string, model);
       setVideoUrls(prev => [...prev, videoUrl].slice(-2));
-    } catch (err: any) {
-      // Changed to any to handle potential unknown type incompatibility and string property checks
+    } catch (err: unknown) {
+      // Narrow the error type to check for specific message strings safely.
       const errorMsg = err instanceof Error ? err.message : String(err);
       if (errorMsg.includes("Requested entity was not found")) {
         await (window as any).aistudio.openSelectKey();
       }
-      setError(getFriendlyErrorMessage(err, 'ไม่สามารถสร้างวิดีโอได้'));
+      setError(getFriendlyErrorMessage(errorMsg, 'ไม่สามารถสร้างวิดีโอได้'));
     } finally {
       setIsVideoLoading(false);
       setLoadingMessage('');
